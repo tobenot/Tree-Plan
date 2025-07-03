@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	html {
+		font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+	}
+	
+	body {
+		@apply bg-earth-bg text-bark-text leading-relaxed;
+		font-size: 17px;
+		min-height: 100vh;
+		background-image: 
+			radial-gradient(circle at 1px 1px, rgba(64,58,48,0.03) 1px, transparent 0);
+		background-size: 24px 24px;
+	}
+}
+
+@layer components {
+	/* Reusable component classes */
+	.forest-paper {
+		background-image: 
+			radial-gradient(circle at 1px 1px, rgba(64,58,48,0.05) 1px, transparent 0);
+		background-size: 20px 20px;
+	}
+	
+	.organic-shape {
+		border-radius: 12px 8px 14px 6px;
+	}
+	
+	.branch-underline {
+		text-decoration: none;
+		border-bottom: 2px dotted currentColor;
+		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	
+	.branch-underline:hover {
+		border-bottom-style: solid;
+		border-bottom-width: 3px;
+	}
+	
+	.grow-in {
+		@apply animate-grow;
+	}
+	
+	.gentle-sway {
+		@apply animate-sway;
+	}
+	
+	.forest-container {
+		@apply max-w-4xl mx-auto px-branch py-trunk;
+	}
+	
+	.trunk-title {
+		@apply text-trunk text-bark-text font-bold text-center mb-trunk;
+		font-family: 'Atkinson Hyperlegible', serif;
+		letter-spacing: -0.02em;
+	}
+	
+	.branch-title {
+		@apply text-branch text-branch-accent font-semibold mb-twig;
+	}
+	
+	.leaf-text {
+		@apply text-leaf text-bark-text leading-relaxed;
+	}
+	
+	.root-text {
+		@apply text-root text-root-secondary;
+	}
+	
+	/* Custom prose styles for the editor's list */
+	.prose ul {
+		@apply pl-branch space-y-1;
+		position: relative;
+	}
+
+	.prose li {
+		@apply relative mb-1;
+	}
+
+	.prose li::before {
+		content: "●";
+		@apply text-branch-accent absolute -left-twig top-0 font-bold;
+		font-size: 1.2em;
+	}
+
+	.prose li li::before {
+		content: "○";
+		@apply text-root-secondary;
+		font-size: 1.1em;
+	}
+
+	.prose li li li::before {
+		content: "▪";
+		@apply text-root-secondary;
+		font-size: 1em;
+	}
+
+	.prose ul ul {
+		@apply pl-twig border-l border-root-secondary/20 ml-leaf;
+	}
+
+	.prose ul ul ul {
+		@apply border-l-0 ml-leaf;
+	}
+
+	.prose ::selection {
+		@apply bg-branch-accent/20;
+	}
+}
