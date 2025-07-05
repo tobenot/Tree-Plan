@@ -1,71 +1,87 @@
 {
-	"type": "doc",
-	"content": [
-	  {
-		"type": "bulletList",
-		"content": [
-		  {
-			"type": "listItem",
-			"content": [
-			  {
-				"type": "paragraph",
-				"content": [
-				  {
-					"type": "text",
-					"text": "🌳 思想森林"
-				  }
-				]
-			  },
-			  {
-				"type": "bulletList",
-				"content": [
-				  {
-					"type": "listItem",
-					"content": [
-					  {
-						"type": "paragraph",
-						"content": [
-						  {
-							"type": "text",
-							"text": "这是一个个人思想的编辑器与发布系统。"
-						  }
-						]
-					  }
-					]
-				  },
-				  {
-					"type": "listItem",
-					"content": [
-					  {
-						"type": "paragraph",
-						"content": [
-						  {
-							"type": "text",
-							"text": "这是一个个人思想的编辑器与发布系统。"
-						  }
-						]
-					  }
-					]
-				  }
-				]
-			  }
-			]
-		  },
-		  {
-			"type": "listItem",
-			"content": [
-			  {
-				"type": "paragraph",
-				"content": [
-				  {
-					"type": "text",
-					"text": "快捷键"
-				  }
-				]
-			  }
-			]
-		  }
-		]
-	  }
-	]
-  }
+  "type": "doc",
+  "content": [
+    {
+      "type": "bulletList",
+      "content": [
+        {
+          "type": "listItem",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "🌳 思想森林"
+                }
+              ]
+            },
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "这是一个个人思想的编辑器与发布系统。",
+                          "marks": [
+                            {
+                              "type": "autoLink",
+                              "attrs": {
+                                "data-link-key": "这是一个个人思想的编辑器与发布系统。"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "这是一个个人思想的编辑器与发布系统。",
+                          "marks": [
+                            {
+                              "type": "autoLink",
+                              "attrs": {
+                                "data-link-key": "这是一个个人思想的编辑器与发布系统。"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "快捷键"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
