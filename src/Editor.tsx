@@ -1,37 +1,42 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { AutoLink } from './extensions/AutoLink';
-import notesData from './data/notes.json';
+// We no longer import the static data here
 
-const TiptapEditor = () => {
+type TiptapEditorProps = {
+	content: any; // Tiptap content can be complex, 'any' is suitable here for flexibility
+	onUpdate: (content: any) => void;
+};
+
+const TiptapEditor = ({ content, onUpdate }: TiptapEditorProps) => {
 	const editor = useEditor({
 		extensions: [
 			StarterKit,
 			AutoLink,
 		],
-		content: notesData,
+		content: content, // Use content from props
 		editorProps: {
 			attributes: {
 				class: 'prose max-w-none forest-paper organic-shape border-2 border-root-secondary/30 p-branch min-h-96 focus:outline-none focus:ring-2 focus:ring-branch-accent/30 focus:border-branch-accent/50 transition-all duration-200 shadow-sm',
 			},
+		},
+		onUpdate: ({ editor }) => {
+			onUpdate(editor.getJSON());
 		},
 	});
 
 	const exportNotes = () => {
 		if (editor) {
 			const json = editor.getJSON();
-			// 方案一：在控制台打印，方便复制
-			console.log(JSON.stringify(json, null, 2));
-			alert('笔记JSON已打印到控制台，请手动复制并覆盖 notes.json 文件！');
-
-			// 方案二：下载文件
-			// const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-			// const url = URL.createObjectURL(blob);
-			// const a = document.createElement('a');
-			// a.href = url;
-			// a.download = 'notes.json';
-			// a.click();
-			// URL.revokeObjectURL(url);
+			const jsonString = JSON.stringify(json, null, 2);
+			
+			navigator.clipboard.writeText(jsonString).then(() => {
+				alert('笔记的JSON内容已成功复制到剪贴板！');
+			}).catch(err => {
+				console.error('无法复制到剪贴板: ', err);
+				alert('复制失败，请检查浏览器权限或手动从控制台复制。');
+				console.log(jsonString); // Fallback for user to copy manually
+			});
 		}
 	}
 

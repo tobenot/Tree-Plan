@@ -12,33 +12,13 @@ export default {
 				'display': ['Atkinson Hyperlegible', 'Georgia', 'serif'],
 			},
 			colors: {
-				'earth': {
-					bg: '#F5F1E8',
-				},
-				'bark': {
-					text: '#403A30',
-				},
-				'branch': {
-					accent: '#B05B3B',
-				},
-				'leaf': {
-					alt: '#587474',
-				},
-				'root': {
-					secondary: '#A09787',
-				},
-				'moss': {
-					subtle: 'rgba(64,58,48,0.05)',
-				},
-				// 保持向后兼容
-				'journal': {
-					bg: '#F5F1E8',
-					text: '#403A30',
-					accent: '#B05B3B',
-					'accent-alt': '#587474',
-					secondary: '#A09787',
-					'subtle': 'rgba(64,58,48,0.05)',
-				}
+				'earth-bg': '#F5F1E8',
+				'bark-text': '#403A30',
+				'branch-accent': '#B05B3B',
+				'leaf-alt': '#587474',
+				'root-secondary': '#A09787',
+
+				'moss-subtle': 'rgba(64,58,48,0.05)',
 			},
 			spacing: {
 				'seed': '2px',
@@ -90,16 +70,16 @@ export default {
 			typography: ({ theme }) => ({
 				DEFAULT: {
 					css: {
-						'--tw-prose-body': theme('colors.bark.text'),
-						'--tw-prose-headings': theme('colors.bark.text'),
-						'--tw-prose-links': theme('colors.branch.accent'),
-						'--tw-prose-bullets': theme('colors.branch.accent'),
-						'--tw-prose-quotes': theme('colors.root.secondary'),
-						'--tw-prose-quote-borders': `theme('colors.branch.accent / 40%')`,
+						'--tw-prose-body': theme('colors.bark-text'),
+						'--tw-prose-headings': theme('colors.bark-text'),
+						'--tw-prose-links': theme('colors.branch-accent'),
+						'--tw-prose-bullets': theme('colors.branch-accent'),
+						'--tw-prose-quotes': theme('colors.root-secondary'),
+						'--tw-prose-quote-borders': `theme('colors.branch-accent / 40%')`,
 						'--tw-prose-code': '#403A30',
-						'--tw-prose-pre-bg': theme('colors.moss.subtle'),
-						'--tw-prose-hr': `theme('colors.root.secondary / 0.2')`,
-						color: theme('colors.leaf.text'),
+						'--tw-prose-pre-bg': theme('colors.moss-subtle'),
+						'--tw-prose-hr': `theme('colors.root-secondary / 0.2')`,
+						color: theme('colors.bark-text'),
 						lineHeight: '1.8',
 						fontSize: '17px',
 						h1: {
@@ -111,7 +91,7 @@ export default {
 						h2: {
 							...theme('fontSize.branch'),
 							fontFamily: theme('fontFamily.display').join(', '),
-							color: theme('colors.branch.accent'),
+							color: theme('colors.branch-accent'),
 							marginTop: theme('spacing.twig'),
 							marginBottom: theme('spacing.leaf'),
 						},
@@ -131,7 +111,7 @@ export default {
 							transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 						},
 						'a:hover': {
-							color: theme('colors.leaf.alt'),
+							color: theme('colors.leaf-alt'),
 							borderBottomStyle: 'solid',
 							borderBottomWidth: '3px',
 						},
@@ -142,15 +122,15 @@ export default {
 							marginLeft: theme('spacing.twig'),
 							marginRight: 0,
 							fontStyle: 'italic',
-							backgroundColor: `theme('colors.moss.subtle / 50%')`,
+							backgroundColor: `theme('colors.moss-subtle / 50%')`,
 							borderRadius: `0 ${theme('borderRadius.leaf')} ${theme('borderRadius.leaf')} 0`,
 						},
 						code: {
-							backgroundColor: theme('colors.moss.subtle'),
+							backgroundColor: theme('colors.moss-subtle'),
 							padding: `${theme('spacing.sprout')} ${theme('spacing.leaf')}`,
 							borderRadius: theme('borderRadius.leaf'),
 							fontFamily: theme('fontFamily.mono').join(','),
-							border: `1px solid theme('colors.root.secondary / 20%')`,
+							border: `1px solid theme('colors.root-secondary / 20%')`,
 							fontWeight: '500',
 						},
 						'code::before': { content: 'none' },
