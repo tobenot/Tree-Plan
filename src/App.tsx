@@ -7,22 +7,23 @@ const ContactWidget = () => {
 	const [isOpen, setIsOpen] = useState(false);
 	const mailToSubject = encodeURIComponent("关于「树计划」的一些想法");
 	const mailToBody = encodeURIComponent("你好，我在「树计划」里看到了关于 [请在此填写主题] 的内容，我想问/聊聊 [请在此填写你的问题或想法]...");
-	const mailToLink = `mailto:your-name@example.com?subject=${mailToSubject}&body=${mailToBody}`;
+	const mailToLink = `mailto:tobenot@qq.com?subject=${mailToSubject}&body=${mailToBody}`;
 
 	return (
 		<div className="fixed bottom-branch right-branch z-50">
 			<div className={`transition-all duration-300 ease-in-out ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
 				<div className="absolute bottom-full right-0 mb-leaf w-72 p-branch bg-earth-bg/90 backdrop-blur-sm rounded-branch shadow-lg border border-root-secondary/20 text-sm text-left">
-					<p className="italic text-root-secondary">"技术是锄头和水桶，'树计划'才是我要用心灌溉的那棵树。"</p>
-					<h3 className="font-bold text-branch-accent mt-twig">找到共鸣了？</h3>
-					<p className="mt-sprout text-bark-text">如果你在这些思绪中找到了同频的火花，欢迎随时通过邮件联系我。</p>
+					<p className="italic text-root-secondary">"对共同话题的渴望也是共同话题。"</p>
+					<h3 className="font-bold text-branch-accent mt-twig">找到共鸣了？对哪个点感兴趣？</h3>
+					<p className="mt-sprout text-bark-text">欢迎随时通过各种方式联系我。一个问题是最好的起点。</p>
 					<a href={mailToLink} className="mt-twig inline-block bg-branch-accent text-white px-twig py-leaf rounded-leaf hover:bg-leaf-alt transition-colors shadow-sm text-xs font-semibold">
 						用“我在树计划里看到了...”发起对话
 					</a>
 					<div className="flex space-x-leaf mt-twig text-xs text-root-secondary">
-						<span>由 YourName 创建 |</span>
-						<a href="#" className="hover:text-branch-accent transition-colors">GitHub</a>
-						<a href="#" className="hover:text-branch-accent transition-colors">Twitter</a>
+						<span>由 tobenot 创建 |</span>
+						<a href="https://tobenot.top" className="hover:text-branch-accent transition-colors">Blog</a>
+						<a href="https://github.com/tobenot" className="hover:text-branch-accent transition-colors">GitHub</a>
+						<a href="https://www.flaticon.com/free-icons/plant" title="plant icons">Icon</a>
 					</div>
 				</div>
 			</div>
