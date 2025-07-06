@@ -24,8 +24,9 @@ type ThoughtRenderNode = {
 
 function parseTiptapNodes(rootNode: TiptapNode): ThoughtRenderNode[] {
 	const renderNodes: ThoughtRenderNode[] = [];
-	const depthWidth = 15; // 每个深度层级的宽度（百分比）
-	const baseIndent = 5;  // 基础缩进
+	const depthWidth = 350; // 每个深度层级的宽度 (像素)
+	const baseIndent = 50;  // 基础缩进
+	const verticalSpacing = 100; // 垂直间距
 
 	function traverse(node: TiptapNode, parentId: string | null = null, depth = 0) {
 		if (node.type === 'listItem' && node.content) {
@@ -46,9 +47,9 @@ function parseTiptapNodes(rootNode: TiptapNode): ThoughtRenderNode[] {
 			}
 
 			if (text.trim()) {
-				// 结构化布局
+				// 结构化布局 - 使用像素单位
 				const x = baseIndent + depth * depthWidth;
-				const y = (renderNodes.length + 1) * 12; // 简单的垂直分布
+				const y = (renderNodes.length + 1) * verticalSpacing;
 
 				renderNodes.push({
 					id,
@@ -84,22 +85,24 @@ type ThoughtNodeProps = {
 	position: {x: number; y: number};
 	isLinked: boolean;
 	isHighlighted: boolean;
+	isDimmed: boolean;
 	onMouseDown: (e: React.MouseEvent) => void;
 	onClick: () => void;
 };
 
 // 思想节点组件
-const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, depth, position, isLinked, isHighlighted, onMouseDown, onClick }, ref) => {
+const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, depth, position, isLinked, isHighlighted, isDimmed, onMouseDown, onClick }, ref) => {
 	// 调试信息，确认组件是否重新渲染
 	console.log(`渲染节点: ${text}`);
 
 	// 根据深度设置样式变体
-	const baseClasses = "absolute p-leaf transform transition-all duration-300 rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md max-w-xs";
+	const baseClasses = "absolute p-leaf transform rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md max-w-xs transition-all duration-300";
 	
 	// 根据是否有链接添加不同的边框颜色
 	const borderClass = isLinked ? "border-leaf-alt" : "border-branch-accent";
 
-	const highlightClass = isHighlighted ? 'animate-[pulse-border_2s_ease-out]' : '';
+	const highlightClass = isHighlighted ? 'animate-[pulse-border_2s_ease-out] z-20' : 'z-10';
+	const dimClass = isDimmed ? 'opacity-20 blur-sm' : 'opacity-100';
 	
 	// 根据深度调整字体大小和透明度
 	const depthClasses = [
@@ -114,10 +117,9 @@ const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, d
 	return (
 		<div 
 			ref={ref}
-			className={`${baseClasses} ${borderClass} ${depthClasses} ${highlightClass}`}
+			className={`${baseClasses} ${borderClass} ${depthClasses} ${highlightClass} ${dimClass}`}
 			style={{
-				left: `${position.x}%`,
-				top: `${position.y}%`
+				transform: `translate(${position.x}px, ${position.y}px)`
 			}}
 			onMouseDown={onMouseDown}
 			onClick={onClick}
@@ -130,10 +132,13 @@ const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, d
 
 const Preview = ({ content }: { content: TiptapNode }) => {
 	const [thoughtNodes, setThoughtNodes] = useState<ThoughtRenderNode[]>([]);
-	const [draggingInfo, setDraggingInfo] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+	const [draggingInfo, setDraggingInfo] = useState<{ id: string; startX: number; startY: number; } | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const nodeRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
-	const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
+	const [focusedText, setFocusedText] = useState<string | null>(null);
+	const [transform, setTransform] = useState({ scale: 0.8, x: 100, y: 100 });
+	const [isPanning, setIsPanning] = useState(false);
+	const panStart = useRef({ x: 0, y: 0 });
 
 	useEffect(() => {
 		if (!content) {
@@ -148,60 +153,90 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		setThoughtNodes(nodes);
 	}, [content]);
 
-	const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
-		const nodeElement = e.currentTarget as HTMLDivElement;
-		const rect = nodeElement.getBoundingClientRect();
-		const offsetX = e.clientX - rect.left;
-		const offsetY = e.clientY - rect.top;
+	const handleNodeMouseDown = (e: React.MouseEvent, node: ThoughtRenderNode) => {
+		e.stopPropagation();
+		setDraggingInfo({
+			id: node.id,
+			startX: e.clientX / transform.scale - node.position.x,
+			startY: e.clientY / transform.scale - node.position.y,
+		});
+	};
 
-		setDraggingInfo({ id: nodeId, offsetX, offsetY });
-		e.preventDefault();
+	const handleContainerMouseDown = (e: React.MouseEvent) => {
+		// 点击背景时取消聚焦, 或开始平移
+		if (e.target === containerRef.current) {
+			setFocusedText(null);
+			setIsPanning(true);
+			panStart.current = {
+				x: e.clientX - transform.x,
+				y: e.clientY - transform.y,
+			};
+		}
 	};
 
 	const handleMouseMove = (e: React.MouseEvent) => {
-		if (!draggingInfo || !containerRef.current) return;
+		if (isPanning) {
+			const x = e.clientX - panStart.current.x;
+			const y = e.clientY - panStart.current.y;
+			setTransform(t => ({ ...t, x, y }));
+			return;
+		}
 
-		const containerRect = containerRef.current.getBoundingClientRect();
-		
-		const newX = Math.max(0, Math.min(100, 
-			((e.clientX - containerRect.left - draggingInfo.offsetX) / containerRect.width) * 100
-		));
-		const newY = Math.max(0, Math.min(100,
-			((e.clientY - containerRect.top - draggingInfo.offsetY) / containerRect.height) * 100
-		));
+		if (draggingInfo) {
+			const newX = e.clientX / transform.scale - draggingInfo.startX;
+			const newY = e.clientY / transform.scale - draggingInfo.startY;
 
-		setThoughtNodes(prevNodes =>
-			prevNodes.map(n =>
-				n.id === draggingInfo.id
-					? { ...n, position: { ...n.position, x: newX, y: newY } }
-					: n
-			)
-		);
-		e.preventDefault();
+			setThoughtNodes(nodes =>
+				nodes.map(n =>
+					n.id === draggingInfo.id
+						? { ...n, position: { x: newX, y: newY } }
+						: n
+				)
+			);
+		}
 	};
 
 	const handleMouseUp = () => {
+		setIsPanning(false);
 		setDraggingInfo(null);
 	};
-	
-	const handleNodeClick = (nodeId: string) => {
-		const clickedNode = thoughtNodes.find(n => n.id === nodeId);
-		if (!clickedNode || !clickedNode.isLinked) return;
 
-		const linkedPartner = thematicLinks.find(link => link.from.id === nodeId || link.to.id === nodeId);
-		if (!linkedPartner) return;
+	const handleWheel = (e: React.WheelEvent) => {
+		e.preventDefault();
+		const scaleAmount = -e.deltaY * 0.001;
+		const newScale = Math.min(Math.max(0.1, transform.scale + scaleAmount), 2);
 		
-		const targetNode = linkedPartner.from.id === nodeId ? linkedPartner.to : linkedPartner.from;
-		const targetElement = nodeRefs.current.get(targetNode.id);
+		const rect = containerRef.current!.getBoundingClientRect();
+		const mouseX = e.clientX - rect.left;
+		const mouseY = e.clientY - rect.top;
 
-		if (targetElement) {
-			targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-			
-			setHighlightedNodeId(targetNode.id);
-			setTimeout(() => {
-				setHighlightedNodeId(null);
-			}, 2000);
+		const newX = transform.x + (mouseX - transform.x) * (1 - newScale / transform.scale);
+		const newY = transform.y + (mouseY - transform.y) * (1 - newScale / transform.scale);
+		
+		setTransform({ scale: newScale, x: newX, y: newY });
+	};
+
+	const handleNodeClick = (clickedNode: ThoughtRenderNode) => {
+		if (!clickedNode.isLinked) return;
+		
+		// 如果点击的已经是高亮的节点，则取消聚焦
+		if (focusedText && clickedNode.text === focusedText) {
+			setFocusedText(null);
+		} else {
+			// 否则，聚焦到这个节点的文本
+			setFocusedText(clickedNode.text);
 		}
+	};
+
+	const resetView = () => {
+		setTransform({ scale: 0.8, x: 100, y: 100 });
+		setFocusedText(null);
+	};
+
+	const zoom = (direction: 'in' | 'out') => {
+		const scaleAmount = direction === 'in' ? 0.2 : -0.2;
+		const newScale = Math.min(Math.max(0.1, transform.scale + scaleAmount), 2);
+		setTransform(t => ({ ...t, scale: newScale }));
 	};
 	
 	// 使用 useMemo 优化关联链接的计算
@@ -236,86 +271,90 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		return (
 			<div className="flex items-center justify-center min-h-[70vh] text-root-secondary">
 				<p className="text-center p-trunk">思想森林尚未生长，请在编辑模式下播种想法。</p>
-				<p className="text-center text-sm mt-2">调试信息: 内容存在={!!content}, 节点数量={thoughtNodes.length}</p>
 			</div>
 		);
 	}
-	
+
 	return (
-		<div className="relative w-full">
-			{/* 顶部标题栏 */}
-			<div className="sticky top-0 bg-earth-bg/80 backdrop-blur-sm w-full text-center py-twig z-50 border-b border-root-secondary/10">
-				<span className="text-root text-root-secondary">预览模式：思想森林</span>
-			</div>
-			
-			{/* 思想森林容器 */}
-			<div 
-				ref={containerRef}
-				onMouseMove={handleMouseMove}
-				onMouseUp={handleMouseUp}
-				onMouseLeave={handleMouseUp}
-				className="relative min-h-[120vh] w-full max-w-4xl mx-auto px-branch py-trunk bg-earth-bg/50 rounded-trunk overflow-hidden shadow-sm"
+		<div
+			ref={containerRef}
+			className="relative h-full w-full overflow-hidden bg-earth-bg cursor-grab active:cursor-grabbing"
+			onMouseDown={handleContainerMouseDown}
+			onMouseMove={handleMouseMove}
+			onMouseUp={handleMouseUp}
+			onMouseLeave={handleMouseUp} // End panning if mouse leaves
+			onWheel={handleWheel}
+		>
+			<div
+				className="absolute top-0 left-0"
+				style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`, transformOrigin: 'top left' }}
 			>
-				{/* 渲染所有连接线 */}
-				<svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-					{/* 结构连接线 (灰色，实线) */}
+				{/* SVG should be large enough, or dynamically sized. For now, a large static size. */}
+				<svg className="absolute top-0 left-0 pointer-events-none z-0 overflow-visible">
+					{/* 结构连接线 */}
 					{thoughtNodes.map(node => {
 						if (!node.parentId) return null;
 						const parentNode = thoughtNodes.find(p => p.id === node.parentId);
 						if (!parentNode) return null;
-						const yOffset = 1.2;
-		
+						const isDimmed = focusedText && ![node.text, parentNode.text].includes(focusedText);
+
 						return (
 							<line
 								key={`line-struct-${node.id}-${parentNode.id}`}
-								x1={`${parentNode.position.x}%`}
-								y1={`${parentNode.position.y + yOffset}%`}
-								x2={`${node.position.x}%`}
-								y2={`${node.position.y + yOffset}%`}
-								className="stroke-root-secondary/30"
-								strokeWidth="1.5"
+								x1={parentNode.position.x} y1={parentNode.position.y + 20}
+								x2={node.position.x} y2={node.position.y + 20}
+								className={`stroke-root-secondary/30 transition-opacity duration-300 ${isDimmed ? 'opacity-10' : 'opacity-100'}`}
+								strokeWidth={1.5 / transform.scale}
 							/>
 						);
 					})}
 
-					{/* 思想连接线 (主题色，虚线) */}
+					{/* 思想连接线 */}
 					{thematicLinks.map((link, index) => {
-						const yOffset = 1.2;
+						const isDimmed = focusedText && ![link.from.text, link.to.text].includes(focusedText);
+						const isHighlighted = focusedText && link.from.text === focusedText;
+
 						return (
-						<line
-							key={`line-theme-${index}`}
-							x1={`${link.from.position.x}%`}
-							y1={`${link.from.position.y + yOffset}%`}
-							x2={`${link.to.position.x}%`}
-							y2={`${link.to.position.y + yOffset}%`}
-							className="stroke-branch-accent/50"
-							strokeWidth="1.5"
-							strokeDasharray="4 3"
-						/>
-					)})}
+							<line
+								key={`line-theme-${index}`}
+								x1={link.from.position.x} y1={link.from.position.y + 20}
+								x2={link.to.position.x} y2={link.to.position.y + 20}
+								className={`stroke-branch-accent/50 transition-all duration-300 ${isDimmed ? 'opacity-0' : 'opacity-100'} ${isHighlighted ? 'stroke-[2.5]' : 'stroke-[1.5]'}`}
+								strokeWidth={(isHighlighted ? 2.5 : 1.5) / transform.scale}
+								strokeDasharray="4 3"
+							/>
+						)
+					})}
 				</svg>
 
-				{thoughtNodes.map((node) => (
-					<ThoughtNode
-						ref={(el) => {
-							if (el) nodeRefs.current.set(node.id, el);
-							else nodeRefs.current.delete(node.id);
-						}}
-						key={node.id}
-						text={node.text}
-						depth={node.depth}
-						position={node.position}
-						isLinked={node.isLinked}
-						isHighlighted={node.id === highlightedNodeId}
-						onMouseDown={(e) => handleMouseDown(e, node.id)}
-						onClick={() => handleNodeClick(node.id)}
-					/>
-				))}
+				{thoughtNodes.map((node) => {
+					const isHighlighted = focusedText === node.text;
+					const isDimmed = focusedText !== null && focusedText !== node.text;
+
+					return (
+						<ThoughtNode
+							ref={(el) => {
+								if (el) nodeRefs.current.set(node.id, el);
+								else nodeRefs.current.delete(node.id);
+							}}
+							key={node.id}
+							text={node.text}
+							depth={node.depth}
+							position={node.position}
+							isLinked={node.isLinked}
+							isHighlighted={isHighlighted}
+							isDimmed={isDimmed}
+							onMouseDown={(e) => handleNodeMouseDown(e, node)}
+							onClick={() => handleNodeClick(node)}
+						/>
+					)
+				})}
 			</div>
 			
-			{/* 底部工具栏 */}
-			<div className="sticky bottom-0 bg-earth-bg/80 backdrop-blur-sm w-full text-center py-twig mt-twig border-t border-root-secondary/10">
-				<span className="text-root-secondary text-sm">可以拖动节点以调整布局</span>
+			<div className="absolute bottom-branch left-branch z-10 flex items-center space-x-2">
+				<button onClick={() => zoom('out')} className="control-button">-</button>
+				<button onClick={resetView} className="control-button text-sm">{Math.round(transform.scale * 100)}%</button>
+				<button onClick={() => zoom('in')} className="control-button">+</button>
 			</div>
 		</div>
 	);
