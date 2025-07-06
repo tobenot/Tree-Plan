@@ -88,10 +88,11 @@ type ThoughtNodeProps = {
 	isDimmed: boolean;
 	onMouseDown: (e: React.MouseEvent) => void;
 	onClick: () => void;
+	onContextMenu: (e: React.MouseEvent) => void;
 };
 
 // 思想节点组件
-const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, depth, position, isLinked, isHighlighted, isDimmed, onMouseDown, onClick }, ref) => {
+const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, depth, position, isLinked, isHighlighted, isDimmed, onMouseDown, onClick, onContextMenu }, ref) => {
 	// 调试信息，确认组件是否重新渲染
 	console.log(`渲染节点: ${text}`);
 
@@ -123,6 +124,7 @@ const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, d
 			}}
 			onMouseDown={onMouseDown}
 			onClick={onClick}
+			onContextMenu={onContextMenu}
 		>
 			<div className="absolute top-1/2 left-0 w-2.5 h-2.5 bg-white border border-root-secondary/50 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
 			{text}
@@ -139,26 +141,26 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	const [transform, setTransform] = useState({ scale: 0.8, x: 100, y: 100 });
 	const [isPanning, setIsPanning] = useState(false);
 	const panStart = useRef({ x: 0, y: 0 });
+	const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: ThoughtRenderNode } | null>(null);
 
-	const transformRef = useRef(transform);
-	transformRef.current = transform;
-
+	// 修复滚轮缩放 - 使用更简单直接的方式
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
 
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
-			const currentTransform = transformRef.current;
+			e.stopPropagation();
+			
 			const scaleAmount = -e.deltaY * 0.001;
-			const newScale = Math.min(Math.max(0.1, currentTransform.scale + scaleAmount), 2);
+			const newScale = Math.min(Math.max(0.1, transform.scale + scaleAmount), 2);
 			
 			const rect = container.getBoundingClientRect();
 			const mouseX = e.clientX - rect.left;
 			const mouseY = e.clientY - rect.top;
 
-			const newX = currentTransform.x + (mouseX - currentTransform.x) * (1 - newScale / currentTransform.scale);
-			const newY = currentTransform.y + (mouseY - currentTransform.y) * (1 - newScale / currentTransform.scale);
+			const newX = transform.x + (mouseX - transform.x) * (1 - newScale / transform.scale);
+			const newY = transform.y + (mouseY - transform.y) * (1 - newScale / transform.scale);
 			
 			setTransform({ scale: newScale, x: newX, y: newY });
 		};
@@ -168,7 +170,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		return () => {
 			container.removeEventListener('wheel', handleWheel);
 		};
-	}, []);
+	}, [transform]); // 依赖于 transform
 
 	useEffect(() => {
 		if (!content) {
@@ -193,6 +195,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	};
 
 	const handleContainerMouseDown = (e: React.MouseEvent) => {
+		closeContextMenu();
 		// 点击背景时取消聚焦, 或开始平移
 		if (e.target === containerRef.current) {
 			setFocusedText(null);
@@ -229,6 +232,62 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	const handleMouseUp = () => {
 		setIsPanning(false);
 		setDraggingInfo(null);
+	};
+
+	const handleContextMenu = (e: React.MouseEvent, node: ThoughtRenderNode) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		// 获取准确的鼠标位置，相对于视口
+		const rect = containerRef.current?.getBoundingClientRect();
+		if (!rect) return;
+		
+		setContextMenu({
+			x: e.clientX,
+			y: e.clientY,
+			node: node,
+		});
+	};
+
+	const closeContextMenu = () => {
+		setContextMenu(null);
+	};
+
+	// 改进的复制功能 - 支持更多浏览器
+	const copyNodeText = async (content: string) => {
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			try {
+				await navigator.clipboard.writeText(content);
+				console.log('复制成功');
+			} catch (err) {
+				fallbackCopy(content);
+			}
+		} else {
+			fallbackCopy(content);
+		}
+		closeContextMenu();
+	};
+
+	const fallbackCopy = (content: string) => {
+		const textarea = document.createElement('textarea');
+		textarea.value = content;
+		textarea.style.position = 'fixed';
+		textarea.style.top = '-9999px';
+		textarea.style.left = '-9999px';
+		document.body.appendChild(textarea);
+		textarea.focus();
+		textarea.select();
+		try {
+			const successful = document.execCommand('copy');
+			if (successful) {
+				console.log('复制成功');
+			} else {
+				console.log('复制失败');
+			}
+		} catch (error) {
+			console.log('复制失败');
+		}
+		document.body.removeChild(textarea);
 	};
 
 	const handleNodeClick = (clickedNode: ThoughtRenderNode) => {
@@ -360,6 +419,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 							isDimmed={isDimmed}
 							onMouseDown={(e) => handleNodeMouseDown(e, node)}
 							onClick={() => handleNodeClick(node)}
+							onContextMenu={(e) => handleContextMenu(e, node)}
 						/>
 					)
 				})}
@@ -370,6 +430,30 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 				<button onClick={resetView} className="control-button text-sm">{Math.round(transform.scale * 100)}%</button>
 				<button onClick={() => zoom('in')} className="control-button">+</button>
 			</div>
+			
+			{contextMenu && (
+				<div
+					style={{ 
+						position: 'fixed',
+						top: contextMenu.y, 
+						left: contextMenu.x,
+						zIndex: 9999
+					}}
+					className="w-48 bg-white/95 backdrop-blur-sm rounded-md shadow-lg border border-root-secondary/20 text-sm animate-grow"
+				>
+					<ul className="py-1">
+						<li>
+							<button
+								onClick={() => copyNodeText(contextMenu.node.text)}
+								className="w-full text-left px-4 py-2 text-bark-text hover:bg-moss-subtle flex items-center space-x-2"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+								<span>复制文本</span>
+							</button>
+						</li>
+					</ul>
+				</div>
+			)}
 		</div>
 	);
 };
