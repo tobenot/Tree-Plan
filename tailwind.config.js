@@ -63,6 +63,11 @@ export default {
 					'0%, 100%': { transform: 'rotate(-1deg)' },
 					'50%': { transform: 'rotate(1deg)' },
 				},
+				'pulse-border': {
+					'0%': { 'box-shadow': '0 0 0 0rem rgba(176, 91, 59, 0.5)' },
+					'70%': { 'box-shadow': '0 0 0 0.5rem rgba(176, 91, 59, 0)' },
+					'100%': { 'box-shadow': '0 0 0 0rem rgba(176, 91, 59, 0)' },
+				}
 			},
 			lineHeight: {
 				'relaxed': '1.8',

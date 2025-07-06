@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, memo } from 'react';
+import { useState, useEffect, useMemo, useRef, memo, forwardRef } from 'react';
 
 type TiptapMark = {
 	type: string;
@@ -78,14 +78,18 @@ function parseTiptapNodes(rootNode: TiptapNode): ThoughtRenderNode[] {
 	return renderNodes;
 }
 
-// 思想节点组件
-const ThoughtNode = memo(({ text, depth, position, isLinked, onMouseDown }: { 
+type ThoughtNodeProps = {
 	text: string;
 	depth: number;
 	position: {x: number; y: number};
 	isLinked: boolean;
+	isHighlighted: boolean;
 	onMouseDown: (e: React.MouseEvent) => void;
-}) => {
+	onClick: () => void;
+};
+
+// 思想节点组件
+const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, depth, position, isLinked, isHighlighted, onMouseDown, onClick }, ref) => {
 	// 调试信息，确认组件是否重新渲染
 	console.log(`渲染节点: ${text}`);
 
@@ -94,6 +98,8 @@ const ThoughtNode = memo(({ text, depth, position, isLinked, onMouseDown }: {
 	
 	// 根据是否有链接添加不同的边框颜色
 	const borderClass = isLinked ? "border-leaf-alt" : "border-branch-accent";
+
+	const highlightClass = isHighlighted ? 'animate-[pulse-border_2s_ease-out]' : '';
 	
 	// 根据深度调整字体大小和透明度
 	const depthClasses = [
@@ -107,22 +113,27 @@ const ThoughtNode = memo(({ text, depth, position, isLinked, onMouseDown }: {
 	
 	return (
 		<div 
-			className={`${baseClasses} ${borderClass} ${depthClasses}`}
+			ref={ref}
+			className={`${baseClasses} ${borderClass} ${depthClasses} ${highlightClass}`}
 			style={{
 				left: `${position.x}%`,
 				top: `${position.y}%`
 			}}
 			onMouseDown={onMouseDown}
+			onClick={onClick}
 		>
+			<div className="absolute top-1/2 left-0 w-2.5 h-2.5 bg-white border border-root-secondary/50 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
 			{text}
 		</div>
 	);
-});
+}));
 
 const Preview = ({ content }: { content: TiptapNode }) => {
 	const [thoughtNodes, setThoughtNodes] = useState<ThoughtRenderNode[]>([]);
 	const [draggingInfo, setDraggingInfo] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const nodeRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+	const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (!content) {
@@ -171,6 +182,26 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 
 	const handleMouseUp = () => {
 		setDraggingInfo(null);
+	};
+	
+	const handleNodeClick = (nodeId: string) => {
+		const clickedNode = thoughtNodes.find(n => n.id === nodeId);
+		if (!clickedNode || !clickedNode.isLinked) return;
+
+		const linkedPartner = thematicLinks.find(link => link.from.id === nodeId || link.to.id === nodeId);
+		if (!linkedPartner) return;
+		
+		const targetNode = linkedPartner.from.id === nodeId ? linkedPartner.to : linkedPartner.from;
+		const targetElement = nodeRefs.current.get(targetNode.id);
+
+		if (targetElement) {
+			targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			
+			setHighlightedNodeId(targetNode.id);
+			setTimeout(() => {
+				setHighlightedNodeId(null);
+			}, 2000);
+		}
 	};
 	
 	// 使用 useMemo 优化关联链接的计算
@@ -232,14 +263,15 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						if (!node.parentId) return null;
 						const parentNode = thoughtNodes.find(p => p.id === node.parentId);
 						if (!parentNode) return null;
+						const yOffset = 1.2;
 		
 						return (
 							<line
 								key={`line-struct-${node.id}-${parentNode.id}`}
 								x1={`${parentNode.position.x}%`}
-								y1={`${parentNode.position.y}%`}
+								y1={`${parentNode.position.y + yOffset}%`}
 								x2={`${node.position.x}%`}
-								y2={`${node.position.y}%`}
+								y2={`${node.position.y + yOffset}%`}
 								className="stroke-root-secondary/30"
 								strokeWidth="1.5"
 							/>
@@ -247,28 +279,36 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 					})}
 
 					{/* 思想连接线 (主题色，虚线) */}
-					{thematicLinks.map((link, index) => (
+					{thematicLinks.map((link, index) => {
+						const yOffset = 1.2;
+						return (
 						<line
 							key={`line-theme-${index}`}
 							x1={`${link.from.position.x}%`}
-							y1={`${link.from.position.y}%`}
+							y1={`${link.from.position.y + yOffset}%`}
 							x2={`${link.to.position.x}%`}
-							y2={`${link.to.position.y}%`}
+							y2={`${link.to.position.y + yOffset}%`}
 							className="stroke-branch-accent/50"
 							strokeWidth="1.5"
 							strokeDasharray="4 3"
 						/>
-					))}
+					)})}
 				</svg>
 
 				{thoughtNodes.map((node) => (
 					<ThoughtNode
+						ref={(el) => {
+							if (el) nodeRefs.current.set(node.id, el);
+							else nodeRefs.current.delete(node.id);
+						}}
 						key={node.id}
 						text={node.text}
 						depth={node.depth}
 						position={node.position}
 						isLinked={node.isLinked}
+						isHighlighted={node.id === highlightedNodeId}
 						onMouseDown={(e) => handleMouseDown(e, node.id)}
+						onClick={() => handleNodeClick(node.id)}
 					/>
 				))}
 			</div>
