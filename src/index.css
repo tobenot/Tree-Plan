@@ -19,58 +19,6 @@
 }
 
 @layer components {
-	/* Reusable component classes */
-	.forest-paper {
-		background-image: 
-			radial-gradient(circle at 1px 1px, rgba(64,58,48,0.05) 1px, transparent 0);
-		background-size: 20px 20px;
-	}
-	
-	.organic-shape {
-		border-radius: 12px 8px 14px 6px;
-	}
-	
-	.branch-underline {
-		text-decoration: none;
-		border-bottom: 2px dotted currentColor;
-		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-	
-	.branch-underline:hover {
-		border-bottom-style: solid;
-		border-bottom-width: 3px;
-	}
-	
-	.grow-in {
-		@apply animate-grow;
-	}
-	
-	.gentle-sway {
-		@apply animate-sway;
-	}
-	
-	.forest-container {
-		@apply max-w-4xl mx-auto px-branch py-trunk;
-	}
-	
-	.trunk-title {
-		@apply text-trunk text-bark-text font-bold text-center mb-trunk;
-		font-family: 'Atkinson Hyperlegible', serif;
-		letter-spacing: -0.02em;
-	}
-	
-	.branch-title {
-		@apply text-branch text-branch-accent font-semibold mb-twig;
-	}
-	
-	.leaf-text {
-		@apply text-leaf text-bark-text leading-relaxed;
-	}
-	
-	.root-text {
-		@apply text-root text-root-secondary;
-	}
-	
 	/* Custom prose styles for the editor's list */
 	.prose ul {
 		@apply pl-branch space-y-1;
