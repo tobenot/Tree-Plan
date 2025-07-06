@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, memo } from 'react';
 
 type TiptapMark = {
 	type: string;
@@ -12,29 +12,83 @@ type TiptapNode = {
 	marks?: TiptapMark[];
 };
 
-// 提取文本节点和链接状态（递归处理所有嵌套结构）
-function extractTextNodesWithMeta(node: TiptapNode): Array<{text: string; isLinked: boolean}> {
-	// 如果是文本节点，直接返回
-	if (node.type === 'text') {
-		const text = node.text || '';
-		const isLinked = node.marks?.some(mark => mark.type === 'autoLink') || false;
-		return [{text, isLinked}];
+type ThoughtRenderNode = {
+	id: string;
+	parentId: string | null;
+	text: string;
+	depth: number;
+	isLinked: boolean;
+	position: { x: number; y: number };
+};
+
+
+function parseTiptapNodes(rootNode: TiptapNode): ThoughtRenderNode[] {
+	const renderNodes: ThoughtRenderNode[] = [];
+	const depthWidth = 15; // 每个深度层级的宽度（百分比）
+	const baseIndent = 5;  // 基础缩进
+
+	function traverse(node: TiptapNode, parentId: string | null = null, depth = 0) {
+		if (node.type === 'listItem' && node.content) {
+			const id = `node-${renderNodes.length}`;
+			let text = '';
+			let isLinked = false;
+
+			const paragraph = node.content.find(c => c.type === 'paragraph');
+			if (paragraph?.content) {
+				text = paragraph.content
+					.filter(c => c.type === 'text')
+					.map(c => c.text || '')
+					.join('');
+				
+				isLinked = paragraph.content.some(c => 
+					c.marks?.some(m => m.type === 'autoLink')
+				);
+			}
+
+			if (text.trim()) {
+				// 结构化布局
+				const x = baseIndent + depth * depthWidth;
+				const y = (renderNodes.length + 1) * 12; // 简单的垂直分布
+
+				renderNodes.push({
+					id,
+					parentId,
+					text,
+					depth,
+					isLinked,
+					position: { x, y },
+				});
+				
+				const nestedList = node.content.find(c => c.type === 'bulletList');
+				if (nestedList?.content) {
+					nestedList.content.forEach(childItem => {
+						traverse(childItem, id, depth + 1);
+					});
+				}
+			}
+			return;
+		}
+
+		if (node.content) {
+			node.content.forEach(child => traverse(child, parentId, depth));
+		}
 	}
-	
-	// 如果没有content，返回空数组
-	if (!node.content) return [];
-	
-	// 递归处理所有子节点
-	return node.content.flatMap(extractTextNodesWithMeta);
+    
+	traverse(rootNode);
+	return renderNodes;
 }
 
 // 思想节点组件
-const ThoughtNode = ({ text, depth, position, isLinked }: { 
+const ThoughtNode = memo(({ text, depth, position, isLinked, onMouseDown }: { 
 	text: string;
 	depth: number;
 	position: {x: number; y: number};
 	isLinked: boolean;
+	onMouseDown: (e: React.MouseEvent) => void;
 }) => {
+	// 调试信息，确认组件是否重新渲染
+	console.log(`渲染节点: ${text}`);
+
 	// 根据深度设置样式变体
 	const baseClasses = "absolute p-leaf transform transition-all duration-300 rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md max-w-xs";
 	
@@ -58,48 +112,90 @@ const ThoughtNode = ({ text, depth, position, isLinked }: {
 				left: `${position.x}%`,
 				top: `${position.y}%`
 			}}
+			onMouseDown={onMouseDown}
 		>
 			{text}
 		</div>
 	);
-};
+});
 
 const Preview = ({ content }: { content: TiptapNode }) => {
-	// 使用useMemo优化提取和处理节点的过程
-	const thoughtNodes = useMemo(() => {
-		if (!content) return [];
+	const [thoughtNodes, setThoughtNodes] = useState<ThoughtRenderNode[]>([]);
+	const [draggingInfo, setDraggingInfo] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!content) {
+			setThoughtNodes([]);
+			return;
+		};
 		
-		// 提取所有文本节点和它们的链接状态
-		const extractedNodes = extractTextNodesWithMeta(content);
-		
+		const nodes = parseTiptapNodes(content);
+
 		// 调试信息
-		console.log('提取的节点:', extractedNodes);
-		
-		// 过滤空节点并处理每个有效节点
-		return extractedNodes
-			.filter(item => item.text.trim().length > 0)
-			.map((item, index) => {
-				// 根据文本长度计算深度
-				const length = item.text.length;
-				const depth = Math.min(Math.floor(length / 10), 5); // 0-5深度级别
-				
-				// 随机但有约束的位置
-				const x = 10 + Math.random() * 80; // 10-90% 宽度
-				const y = 10 + Math.random() * 80; // 10-90% 高度
-				
-				return {
-					id: index,
-					text: item.text,
-					depth,
-					position: { x, y },
-					isLinked: item.isLinked
-				};
-			});
+		console.log('解析的节点:', nodes);
+		setThoughtNodes(nodes);
 	}, [content]);
+
+	const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
+		const nodeElement = e.currentTarget as HTMLDivElement;
+		const rect = nodeElement.getBoundingClientRect();
+		const offsetX = e.clientX - rect.left;
+		const offsetY = e.clientY - rect.top;
+
+		setDraggingInfo({ id: nodeId, offsetX, offsetY });
+		e.preventDefault();
+	};
+
+	const handleMouseMove = (e: React.MouseEvent) => {
+		if (!draggingInfo || !containerRef.current) return;
+
+		const containerRect = containerRef.current.getBoundingClientRect();
+		
+		const newX = Math.max(0, Math.min(100, 
+			((e.clientX - containerRect.left - draggingInfo.offsetX) / containerRect.width) * 100
+		));
+		const newY = Math.max(0, Math.min(100,
+			((e.clientY - containerRect.top - draggingInfo.offsetY) / containerRect.height) * 100
+		));
+
+		setThoughtNodes(prevNodes =>
+			prevNodes.map(n =>
+				n.id === draggingInfo.id
+					? { ...n, position: { ...n.position, x: newX, y: newY } }
+					: n
+			)
+		);
+		e.preventDefault();
+	};
+
+	const handleMouseUp = () => {
+		setDraggingInfo(null);
+	};
 	
-	// 记录连接线的状态
-	const [showConnections, setShowConnections] = useState(false);
-	
+	// 使用 useMemo 优化关联链接的计算
+	const thematicLinks = useMemo(() => {
+		const links: Array<{from: ThoughtRenderNode, to: ThoughtRenderNode}> = [];
+		const linkedGroups = thoughtNodes
+			.filter(node => node.isLinked)
+			.reduce((acc, node) => {
+				acc[node.text] = acc[node.text] || [];
+				acc[node.text].push(node);
+				return acc;
+			}, {} as Record<string, ThoughtRenderNode[]>);
+
+		Object.values(linkedGroups).forEach(group => {
+			if (group.length > 1) {
+				for (let i = 0; i < group.length - 1; i++) {
+					for (let j = i + 1; j < group.length; j++) {
+						links.push({ from: group[i], to: group[j] });
+					}
+				}
+			}
+		});
+		return links;
+	}, [thoughtNodes]);
+
 	// 调试信息
 	console.log('思想节点数量:', thoughtNodes.length);
 	console.log('思想节点:', thoughtNodes);
@@ -122,8 +218,49 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 			</div>
 			
 			{/* 思想森林容器 */}
-			<div className="relative min-h-[70vh] w-full max-w-4xl mx-auto px-branch py-trunk bg-earth-bg/50 rounded-trunk overflow-hidden shadow-sm">
-				{/* 渲染所有节点 */}
+			<div 
+				ref={containerRef}
+				onMouseMove={handleMouseMove}
+				onMouseUp={handleMouseUp}
+				onMouseLeave={handleMouseUp}
+				className="relative min-h-[120vh] w-full max-w-4xl mx-auto px-branch py-trunk bg-earth-bg/50 rounded-trunk overflow-hidden shadow-sm"
+			>
+				{/* 渲染所有连接线 */}
+				<svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+					{/* 结构连接线 (灰色，实线) */}
+					{thoughtNodes.map(node => {
+						if (!node.parentId) return null;
+						const parentNode = thoughtNodes.find(p => p.id === node.parentId);
+						if (!parentNode) return null;
+		
+						return (
+							<line
+								key={`line-struct-${node.id}-${parentNode.id}`}
+								x1={`${parentNode.position.x}%`}
+								y1={`${parentNode.position.y}%`}
+								x2={`${node.position.x}%`}
+								y2={`${node.position.y}%`}
+								className="stroke-root-secondary/30"
+								strokeWidth="1.5"
+							/>
+						);
+					})}
+
+					{/* 思想连接线 (主题色，虚线) */}
+					{thematicLinks.map((link, index) => (
+						<line
+							key={`line-theme-${index}`}
+							x1={`${link.from.position.x}%`}
+							y1={`${link.from.position.y}%`}
+							x2={`${link.to.position.x}%`}
+							y2={`${link.to.position.y}%`}
+							className="stroke-branch-accent/50"
+							strokeWidth="1.5"
+							strokeDasharray="4 3"
+						/>
+					))}
+				</svg>
+
 				{thoughtNodes.map((node) => (
 					<ThoughtNode
 						key={node.id}
@@ -131,26 +268,14 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						depth={node.depth}
 						position={node.position}
 						isLinked={node.isLinked}
+						onMouseDown={(e) => handleMouseDown(e, node.id)}
 					/>
 				))}
-				
-				{/* 这里可以添加节点之间的连接线，使用SVG */}
-				{showConnections && (
-					<svg className="absolute inset-0 w-full h-full pointer-events-none">
-						{/* 在这里可以动态生成SVG连接线 */}
-						{/* 例如可以连接所有相同深度的节点，或者所有标记为链接的节点 */}
-					</svg>
-				)}
 			</div>
 			
 			{/* 底部工具栏 */}
 			<div className="sticky bottom-0 bg-earth-bg/80 backdrop-blur-sm w-full text-center py-twig mt-twig border-t border-root-secondary/10">
-				<button 
-					onClick={() => setShowConnections(!showConnections)}
-					className="px-branch py-leaf text-root bg-branch-accent/10 hover:bg-branch-accent/20 text-branch-accent rounded-full transition-colors"
-				>
-					{showConnections ? "隐藏" : "显示"}思想连接
-				</button>
+				<span className="text-root-secondary text-sm">可以拖动节点以调整布局</span>
 			</div>
 		</div>
 	);
