@@ -96,7 +96,7 @@ const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, d
 	console.log(`渲染节点: ${text}`);
 
 	// 根据深度设置样式变体
-	const baseClasses = "absolute p-leaf transform rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md max-w-xs transition-all duration-300";
+	const baseClasses = "absolute p-leaf transform rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md w-64 transition-all duration-300";
 	
 	// 根据是否有链接添加不同的边框颜色
 	const borderClass = isLinked ? "border-leaf-alt" : "border-branch-accent";
@@ -139,6 +139,36 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	const [transform, setTransform] = useState({ scale: 0.8, x: 100, y: 100 });
 	const [isPanning, setIsPanning] = useState(false);
 	const panStart = useRef({ x: 0, y: 0 });
+
+	const transformRef = useRef(transform);
+	transformRef.current = transform;
+
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		const handleWheel = (e: WheelEvent) => {
+			e.preventDefault();
+			const currentTransform = transformRef.current;
+			const scaleAmount = -e.deltaY * 0.001;
+			const newScale = Math.min(Math.max(0.1, currentTransform.scale + scaleAmount), 2);
+			
+			const rect = container.getBoundingClientRect();
+			const mouseX = e.clientX - rect.left;
+			const mouseY = e.clientY - rect.top;
+
+			const newX = currentTransform.x + (mouseX - currentTransform.x) * (1 - newScale / currentTransform.scale);
+			const newY = currentTransform.y + (mouseY - currentTransform.y) * (1 - newScale / currentTransform.scale);
+			
+			setTransform({ scale: newScale, x: newX, y: newY });
+		};
+		
+		container.addEventListener('wheel', handleWheel, { passive: false });
+
+		return () => {
+			container.removeEventListener('wheel', handleWheel);
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!content) {
@@ -199,21 +229,6 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	const handleMouseUp = () => {
 		setIsPanning(false);
 		setDraggingInfo(null);
-	};
-
-	const handleWheel = (e: React.WheelEvent) => {
-		e.preventDefault();
-		const scaleAmount = -e.deltaY * 0.001;
-		const newScale = Math.min(Math.max(0.1, transform.scale + scaleAmount), 2);
-		
-		const rect = containerRef.current!.getBoundingClientRect();
-		const mouseX = e.clientX - rect.left;
-		const mouseY = e.clientY - rect.top;
-
-		const newX = transform.x + (mouseX - transform.x) * (1 - newScale / transform.scale);
-		const newY = transform.y + (mouseY - transform.y) * (1 - newScale / transform.scale);
-		
-		setTransform({ scale: newScale, x: newX, y: newY });
 	};
 
 	const handleNodeClick = (clickedNode: ThoughtRenderNode) => {
@@ -283,7 +298,6 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 			onMouseMove={handleMouseMove}
 			onMouseUp={handleMouseUp}
 			onMouseLeave={handleMouseUp} // End panning if mouse leaves
-			onWheel={handleWheel}
 		>
 			<div
 				className="absolute top-0 left-0"
