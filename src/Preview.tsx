@@ -400,11 +400,21 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						const endY = node.position.y + nodeSize.height / 2;
 						const cornerRadius = 10;
 
-						// 路径：只在出发端做圆角，终点直连
+						// 判断子节点是否在父节点上方
+						const isChildAbove = endY < startY;
+
+						// 路径：根据子节点位置选择正确的路径
 						let pathData = `M ${startX} ${startY}`;
 						if (Math.abs(endY - startY) > cornerRadius) {
-							pathData += ` L ${startX} ${endY - cornerRadius}`;
-							pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							if (isChildAbove) {
+								// 子节点在上方：向上弯曲
+								pathData += ` L ${startX} ${endY + cornerRadius}`;
+								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							} else {
+								// 子节点在下方：向下弯曲
+								pathData += ` L ${startX} ${endY - cornerRadius}`;
+								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							}
 						} else {
 							// 如果距离很近，直接直线
 							pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
