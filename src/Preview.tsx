@@ -423,7 +423,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
             if (Math.abs(endY - startY) > cornerRadius) {
               if (isChildAbove) {
                 // 子节点在上方：向上弯曲
-                pathData += ` L ${startX} ${endY - cornerRadius}`;
+                pathData += ` L ${startX} ${endY + cornerRadius}`;
                 pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
               } else {
                 // 子节点在下方：向下弯曲
