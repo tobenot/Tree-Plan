@@ -103,7 +103,7 @@ const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, d
 	console.log(`渲染节点: ${text}`);
 
 	// 根据深度设置样式变体
-	const baseClasses = "absolute p-leaf transform rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md w-64 transition-all duration-300";
+	const baseClasses = "absolute p-leaf transform rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md w-64 transition-all duration-300 select-none";
 	
 	// 根据是否有链接添加不同的边框颜色
 	const borderClass = isLinked ? "border-leaf-alt" : "border-branch-accent";
@@ -131,6 +131,11 @@ const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, d
 			onMouseDown={onMouseDown}
 			onClick={onClick}
 			onContextMenu={onContextMenu}
+			onCopy={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				return false;
+			}}
 		>
 			<div className="absolute top-1/2 left-0 w-2.5 h-2.5 bg-white border border-root-secondary/50 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
 			{text}
@@ -147,6 +152,20 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	const [isPanning, setIsPanning] = useState(false);
 	const panStart = useRef({ x: 0, y: 0 });
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: ThoughtRenderNode } | null>(null);
+
+	// 禁用复制功能
+	const handleCopy = (e: React.ClipboardEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		return false;
+	};
+
+	// 禁用右键菜单（除了我们自定义的）
+	const handleContextMenuGlobal = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		return false;
+	};
 
 	// 动态节点尺寸管理
 	const nodeSizes = useRef(new Map<string, NodeSize>());
@@ -390,6 +409,8 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 			onMouseMove={handleMouseMove}
 			onMouseUp={handleMouseUp}
 			onMouseLeave={handleMouseUp} // End panning if mouse leaves
+			onCopy={handleCopy}
+			onContextMenu={handleContextMenuGlobal}
 		>
 			<div
 				className="absolute top-0 left-0"
