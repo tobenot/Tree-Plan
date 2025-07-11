@@ -21,6 +21,12 @@ type ThoughtRenderNode = {
 	position: { x: number; y: number };
 };
 
+// 节点尺寸类型
+type NodeSize = {
+	width: number;
+	height: number;
+};
+
 
 function parseTiptapNodes(rootNode: TiptapNode): ThoughtRenderNode[] {
 	const renderNodes: ThoughtRenderNode[] = [];
@@ -136,12 +142,23 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	const [thoughtNodes, setThoughtNodes] = useState<ThoughtRenderNode[]>([]);
 	const [draggingInfo, setDraggingInfo] = useState<{ id: string; startX: number; startY: number; } | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const nodeRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 	const [focusedText, setFocusedText] = useState<string | null>(null);
 	const [transform, setTransform] = useState({ scale: 0.8, x: 100, y: 100 });
 	const [isPanning, setIsPanning] = useState(false);
 	const panStart = useRef({ x: 0, y: 0 });
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: ThoughtRenderNode } | null>(null);
+
+	// 动态节点尺寸管理
+	const nodeSizes = useRef(new Map<string, NodeSize>());
+
+	const handleNodeRef = (nodeId: string) => (el: HTMLDivElement | null) => {
+		if (el) {
+			nodeSizes.current.set(nodeId, {
+				width: el.offsetWidth,
+				height: el.offsetHeight
+			});
+		}
+	};
 
 	// 修复滚轮缩放 - 使用更简单直接的方式
 	useEffect(() => {
@@ -371,32 +388,28 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						if (!parentNode) return null;
 						const isDimmed = focusedText && ![node.text, parentNode.text].includes(focusedText);
 
-						// 计算90度弯折路径
-						const startX = parentNode.position.x;
-						const startY = parentNode.position.y + 20;
+						// 动态获取节点宽高，若未获取到则用默认值
+						const parentSize = nodeSizes.current.get(parentNode.id) || {width: 200, height: 48};
+						const nodeSize = nodeSizes.current.get(node.id) || {width: 200, height: 48};
+
+						// 起点：父节点中心下方
+						const startX = parentNode.position.x + parentSize.width / 2;
+						const startY = parentNode.position.y + parentSize.height;
+						// 终点：子节点左侧中心
 						const endX = node.position.x;
-						const endY = node.position.y + 20;
-						
-						// 智能计算路径：根据节点位置关系选择最佳路径
-						const cornerRadius = 4; // 圆角半径
-						let pathData: string;
-						
-						// 如果子节点在父节点下方且水平距离较近，使用简单的垂直连接
-						if (Math.abs(endX - startX) < 50 && endY > startY) {
-							pathData = `M ${startX} ${startY} L ${endX} ${endY}`;
+						const endY = node.position.y + nodeSize.height / 2;
+						const cornerRadius = 10;
+
+						// 路径：只在出发端做圆角，终点直连
+						let pathData = `M ${startX} ${startY}`;
+						if (Math.abs(endY - startY) > cornerRadius) {
+							pathData += ` L ${startX} ${endY - cornerRadius}`;
+							pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
 						} else {
-							// 否则使用90度弯折路径，更像传统大纲笔记
-							const verticalEndY = startY + 35; // 垂直段长度
-							const horizontalY = Math.max(verticalEndY, endY - 15); // 水平段位置
-							
-							// 使用更平滑的路径，避免过于尖锐的拐角
-							pathData = `M ${startX} ${startY} 
-								L ${startX} ${horizontalY - cornerRadius} 
-								Q ${startX} ${horizontalY} ${startX + cornerRadius} ${horizontalY} 
-								L ${endX - cornerRadius} ${horizontalY} 
-								Q ${endX} ${horizontalY} ${endX} ${horizontalY + cornerRadius} 
-								L ${endX} ${endY}`;
+							// 如果距离很近，直接直线
+							pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
 						}
+						pathData += ` L ${endX} ${endY}`;
 
 						return (
 							<path
@@ -417,24 +430,29 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						const isDimmed = focusedText && ![link.from.text, link.to.text].includes(focusedText);
 						const isHighlighted = focusedText && link.from.text === focusedText;
 
-						// 计算90度弯折路径
-						const startX = link.from.position.x;
-						const startY = link.from.position.y + 20;
+						// 动态获取节点宽高，若未获取到则用默认值
+						const fromSize = nodeSizes.current.get(link.from.id) || {width: 200, height: 48};
+						const toSize = nodeSizes.current.get(link.to.id) || {width: 200, height: 48};
+
+						// 起点：源节点右侧中心
+						const startX = link.from.position.x + fromSize.width;
+						const startY = link.from.position.y + fromSize.height / 2;
+						// 终点：目标节点左侧中心
 						const endX = link.to.position.x;
-						const endY = link.to.position.y + 20;
+						const endY = link.to.position.y + toSize.height / 2;
 						
 						// 智能计算路径：根据节点位置关系选择最佳路径
-						const cornerRadius = 3; // 圆角半径（稍小一些）
+						const cornerRadius = 8; // 圆角半径
 						let pathData: string;
 						
 						// 如果两个节点距离较近，使用简单的直线连接
 						const distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-						if (distance < 80) {
+						if (distance < 100) {
 							pathData = `M ${startX} ${startY} L ${endX} ${endY}`;
 						} else {
-							// 否则使用90度弯折路径，更像传统大纲笔记
-							const verticalEndY = startY + 30; // 垂直段长度
-							const horizontalY = Math.max(verticalEndY, endY - 12); // 水平段位置
+							// 否则使用90度弯折路径
+							const verticalEndY = startY + 25; // 垂直段长度
+							const horizontalY = Math.max(verticalEndY, endY - 10); // 水平段位置
 							
 							// 使用更平滑的路径，避免过于尖锐的拐角
 							pathData = `M ${startX} ${startY} 
@@ -467,10 +485,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 
 					return (
 						<ThoughtNode
-							ref={(el) => {
-								if (el) nodeRefs.current.set(node.id, el);
-								else nodeRefs.current.delete(node.id);
-							}}
+							ref={handleNodeRef(node.id)}
 							key={node.id}
 							text={node.text}
 							depth={node.depth}
