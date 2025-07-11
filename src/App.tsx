@@ -50,7 +50,7 @@ function App() {
 	return (
 		<div className="h-screen w-screen flex flex-col bg-earth-bg antialiased">
 			<header className="py-twig px-branch text-center relative z-20 bg-earth-bg/60 backdrop-blur-sm border-b border-root-secondary/10 shrink-0">
-				<h1 className="font-display text-branch text-bark-text font-bold tracking-[-0.02em]">
+				<h1 className="font-display text-branch text-bark-text font-bold tracking-[-0.02em] select-none">
 					🌳 树计划
 				</h1>
 				

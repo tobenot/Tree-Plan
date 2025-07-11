@@ -15,6 +15,11 @@
 		background-image: 
 			radial-gradient(circle at 1px 1px, rgba(64,58,48,0.03) 1px, transparent 0);
 		background-size: 24px 24px;
+		/* 禁用文本选择，避免影响拖动体验 */
+		user-select: none;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
 	}
 }
 
@@ -57,5 +62,21 @@
 
 	.prose ::selection {
 		@apply bg-branch-accent/20;
+	}
+
+	/* Enable text selection in Editor component when in edit mode */
+	.ProseMirror {
+		user-select: text !important;
+		-webkit-user-select: text !important;
+		-moz-user-select: text !important;
+		-ms-user-select: text !important;
+	}
+
+	/* Also enable text selection for any contenteditable elements */
+	[contenteditable="true"] {
+		user-select: text !important;
+		-webkit-user-select: text !important;
+		-moz-user-select: text !important;
+		-ms-user-select: text !important;
 	}
 }
