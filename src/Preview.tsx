@@ -371,13 +371,43 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						if (!parentNode) return null;
 						const isDimmed = focusedText && ![node.text, parentNode.text].includes(focusedText);
 
+						// 计算90度弯折路径
+						const startX = parentNode.position.x;
+						const startY = parentNode.position.y + 20;
+						const endX = node.position.x;
+						const endY = node.position.y + 20;
+						
+						// 智能计算路径：根据节点位置关系选择最佳路径
+						const cornerRadius = 4; // 圆角半径
+						let pathData: string;
+						
+						// 如果子节点在父节点下方且水平距离较近，使用简单的垂直连接
+						if (Math.abs(endX - startX) < 50 && endY > startY) {
+							pathData = `M ${startX} ${startY} L ${endX} ${endY}`;
+						} else {
+							// 否则使用90度弯折路径，更像传统大纲笔记
+							const verticalEndY = startY + 35; // 垂直段长度
+							const horizontalY = Math.max(verticalEndY, endY - 15); // 水平段位置
+							
+							// 使用更平滑的路径，避免过于尖锐的拐角
+							pathData = `M ${startX} ${startY} 
+								L ${startX} ${horizontalY - cornerRadius} 
+								Q ${startX} ${horizontalY} ${startX + cornerRadius} ${horizontalY} 
+								L ${endX - cornerRadius} ${horizontalY} 
+								Q ${endX} ${horizontalY} ${endX} ${horizontalY + cornerRadius} 
+								L ${endX} ${endY}`;
+						}
+
 						return (
-							<line
+							<path
 								key={`line-struct-${node.id}-${parentNode.id}`}
-								x1={parentNode.position.x} y1={parentNode.position.y + 20}
-								x2={node.position.x} y2={node.position.y + 20}
-								className={`stroke-root-secondary/30 transition-opacity duration-300 ${isDimmed ? 'opacity-10' : 'opacity-100'}`}
-								strokeWidth={1.5 / transform.scale}
+								d={pathData}
+								className={`stroke-root-secondary/40 transition-opacity duration-300 ${isDimmed ? 'opacity-10' : 'opacity-100'}`}
+								strokeWidth={1.8 / transform.scale}
+								fill="none"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								filter="drop-shadow(0 1px 1px rgba(0,0,0,0.1))"
 							/>
 						);
 					})}
@@ -387,14 +417,45 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						const isDimmed = focusedText && ![link.from.text, link.to.text].includes(focusedText);
 						const isHighlighted = focusedText && link.from.text === focusedText;
 
+						// 计算90度弯折路径
+						const startX = link.from.position.x;
+						const startY = link.from.position.y + 20;
+						const endX = link.to.position.x;
+						const endY = link.to.position.y + 20;
+						
+						// 智能计算路径：根据节点位置关系选择最佳路径
+						const cornerRadius = 3; // 圆角半径（稍小一些）
+						let pathData: string;
+						
+						// 如果两个节点距离较近，使用简单的直线连接
+						const distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+						if (distance < 80) {
+							pathData = `M ${startX} ${startY} L ${endX} ${endY}`;
+						} else {
+							// 否则使用90度弯折路径，更像传统大纲笔记
+							const verticalEndY = startY + 30; // 垂直段长度
+							const horizontalY = Math.max(verticalEndY, endY - 12); // 水平段位置
+							
+							// 使用更平滑的路径，避免过于尖锐的拐角
+							pathData = `M ${startX} ${startY} 
+								L ${startX} ${horizontalY - cornerRadius} 
+								Q ${startX} ${horizontalY} ${startX + cornerRadius} ${horizontalY} 
+								L ${endX - cornerRadius} ${horizontalY} 
+								Q ${endX} ${horizontalY} ${endX} ${horizontalY + cornerRadius} 
+								L ${endX} ${endY}`;
+						}
+
 						return (
-							<line
+							<path
 								key={`line-theme-${index}`}
-								x1={link.from.position.x} y1={link.from.position.y + 20}
-								x2={link.to.position.x} y2={link.to.position.y + 20}
-								className={`stroke-branch-accent/50 transition-all duration-300 ${isDimmed ? 'opacity-0' : 'opacity-100'} ${isHighlighted ? 'stroke-[2.5]' : 'stroke-[1.5]'}`}
+								d={pathData}
+								className={`stroke-branch-accent/60 transition-all duration-300 ${isDimmed ? 'opacity-0' : 'opacity-100'} ${isHighlighted ? 'stroke-[2.5]' : 'stroke-[1.5]'}`}
 								strokeWidth={(isHighlighted ? 2.5 : 1.5) / transform.scale}
 								strokeDasharray="4 3"
+								fill="none"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								filter="drop-shadow(0 1px 1px rgba(0,0,0,0.15))"
 							/>
 						)
 					})}
