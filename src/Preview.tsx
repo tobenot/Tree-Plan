@@ -150,13 +150,22 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 
 	// 动态节点尺寸管理
 	const nodeSizes = useRef(new Map<string, NodeSize>());
+	const [forceUpdate, setForceUpdate] = useState(0);
 
 	const handleNodeRef = (nodeId: string) => (el: HTMLDivElement | null) => {
 		if (el) {
-			nodeSizes.current.set(nodeId, {
+			const newSize = {
 				width: el.offsetWidth,
 				height: el.offsetHeight
-			});
+			};
+			const oldSize = nodeSizes.current.get(nodeId);
+			
+			// 只有当尺寸真正改变时才触发更新
+			if (!oldSize || oldSize.width !== newSize.width || oldSize.height !== newSize.height) {
+				nodeSizes.current.set(nodeId, newSize);
+				// 强制重新渲染连接线
+				setForceUpdate(prev => prev + 1);
+			}
 		}
 	};
 
@@ -200,6 +209,13 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		// 调试信息
 		console.log('解析的节点:', nodes);
 		setThoughtNodes(nodes);
+		
+		// 延迟强制刷新，确保所有节点都已渲染并获取到尺寸
+		const timer = setTimeout(() => {
+			setForceUpdate(prev => prev + 1);
+		}, 100);
+		
+		return () => clearTimeout(timer);
 	}, [content]);
 
 	const handleNodeMouseDown = (e: React.MouseEvent, node: ThoughtRenderNode) => {
@@ -351,7 +367,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 			}
 		});
 		return links;
-	}, [thoughtNodes]);
+	}, [thoughtNodes, forceUpdate]);
 
 	// 调试信息
 	console.log('思想节点数量:', thoughtNodes.length);
@@ -400,14 +416,30 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						const endY = node.position.y + nodeSize.height / 2;
 						const cornerRadius = 10;
 
-						// 路径：只在出发端做圆角，终点直连
+						// 智能路径：根据子节点相对于父节点的位置调整圆角方向
 						let pathData = `M ${startX} ${startY}`;
-						if (Math.abs(endY - startY) > cornerRadius) {
-							pathData += ` L ${startX} ${endY - cornerRadius}`;
-							pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+						
+						// 判断子节点是否在父节点上方
+						const isChildAbove = node.position.y < parentNode.position.y;
+						
+						if (isChildAbove) {
+							// 子节点在父节点上方，圆角从上方开始
+							if (Math.abs(endY - startY) > cornerRadius) {
+								pathData += ` L ${startX} ${endY + cornerRadius}`;
+								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							} else {
+								// 如果距离很近，直接圆角
+								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							}
 						} else {
-							// 如果距离很近，直接直线
-							pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							// 子节点在父节点下方，圆角从下方开始
+							if (Math.abs(endY - startY) > cornerRadius) {
+								pathData += ` L ${startX} ${endY - cornerRadius}`;
+								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							} else {
+								// 如果距离很近，直接圆角
+								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+							}
 						}
 						pathData += ` L ${endX} ${endY}`;
 
