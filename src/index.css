@@ -63,4 +63,20 @@
 	.prose ::selection {
 		@apply bg-branch-accent/20;
 	}
+
+	/* Enable text selection in Editor component when in edit mode */
+	.ProseMirror {
+		user-select: text !important;
+		-webkit-user-select: text !important;
+		-moz-user-select: text !important;
+		-ms-user-select: text !important;
+	}
+
+	/* Also enable text selection for any contenteditable elements */
+	[contenteditable="true"] {
+		user-select: text !important;
+		-webkit-user-select: text !important;
+		-moz-user-select: text !important;
+		-ms-user-select: text !important;
+	}
 }
