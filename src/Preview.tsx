@@ -416,32 +416,25 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						const endY = node.position.y + nodeSize.height / 2;
 						const cornerRadius = 10;
 
-						// 智能路径：根据子节点相对于父节点的位置调整圆角方向
-						let pathData = `M ${startX} ${startY}`;
-						
-						// 判断子节点是否在父节点上方
-						const isChildAbove = node.position.y < parentNode.position.y;
-						
-						if (isChildAbove) {
-							// 子节点在父节点上方，圆角从上方开始
-							if (Math.abs(endY - startY) > cornerRadius) {
-								pathData += ` L ${startX} ${endY + cornerRadius}`;
-								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
-							} else {
-								// 如果距离很近，直接圆角
-								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
-							}
-						} else {
-							// 子节点在父节点下方，圆角从下方开始
-							if (Math.abs(endY - startY) > cornerRadius) {
-								pathData += ` L ${startX} ${endY - cornerRadius}`;
-								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
-							} else {
-								// 如果距离很近，直接圆角
-								pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
-							}
-						}
-						pathData += ` L ${endX} ${endY}`;
+            // 判断子节点是否在父节点上方（用连接点而不是节点顶点）
+            const isChildAbove = endY < startY;
+
+            let pathData = `M ${startX} ${startY}`;
+            if (Math.abs(endY - startY) > cornerRadius) {
+              if (isChildAbove) {
+                // 子节点在上方：向上弯曲
+                pathData += ` L ${startX} ${endY - cornerRadius}`;
+                pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+              } else {
+                // 子节点在下方：向下弯曲
+                pathData += ` L ${startX} ${endY - cornerRadius}`;
+                pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+              }
+            } else {
+              // 距离很近，直接圆角
+              pathData += ` Q ${startX} ${endY} ${startX + cornerRadius} ${endY}`;
+            }
+            pathData += ` L ${endX} ${endY}`;
 
 						return (
 							<path
