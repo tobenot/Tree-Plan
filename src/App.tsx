@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Editor from './Editor';
 import Preview from './Preview';
 import initialNotes from './data/notes.json'; // Load initial data
@@ -46,6 +46,24 @@ function App() {
 	const [viewMode, setViewMode] = useState(import.meta.env.PROD ? 'preview' : 'edit');
 	const [noteContent, setNoteContent] = useState(initialNotes);
 	const isPreview = viewMode === 'preview';
+
+	// 添加全局控制台命令
+	useEffect(() => {
+		(window as any).toggleEditMode = () => {
+			setViewMode(isPreview ? 'edit' : 'preview');
+			console.log(`已切换到${isPreview ? '编辑' : '预览'}模式`);
+		};
+		
+		(window as any).setEditMode = (mode: 'edit' | 'preview') => {
+			setViewMode(mode);
+			console.log(`已切换到${mode === 'edit' ? '编辑' : '预览'}模式`);
+		};
+		
+		console.log('🌳 树计划控制台命令已加载:');
+		console.log('  toggleEditMode() - 切换编辑/预览模式');
+		console.log('  setEditMode("edit") - 设置为编辑模式');
+		console.log('  setEditMode("preview") - 设置为预览模式');
+	}, [isPreview]);
 
 	return (
 		<div className="h-screen w-screen flex flex-col bg-earth-bg antialiased">
