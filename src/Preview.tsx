@@ -100,7 +100,7 @@ type ThoughtNodeProps = {
 // 思想节点组件
 const ThoughtNode = memo(forwardRef<HTMLDivElement, ThoughtNodeProps>(({ text, depth, position, isLinked, isHighlighted, isDimmed, onMouseDown, onClick, onContextMenu }, ref) => {
 	// 调试信息，确认组件是否重新渲染
-	console.log(`渲染节点: ${text}`);
+	// console.log(`渲染节点: ${text}`);
 
 	// 根据深度设置样式变体
 	const baseClasses = "absolute p-leaf transform rounded-leaf bg-white/90 shadow-sm cursor-pointer border-l-2 hover:-translate-y-1 hover:shadow-md w-64 transition-all duration-300 select-none";
@@ -153,8 +153,19 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	const panStart = useRef({ x: 0, y: 0 });
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: ThoughtRenderNode } | null>(null);
 
+	// 新增：拖拽节流相关
+	const dragAnimationFrameId = useRef<number | null>(null);
+	const pendingDragPosition = useRef<{ x: number; y: number } | null>(null);
+
+	// 新增：内部复制放行标记，用于允许 fallback 的 copy 事件通过
+	const allowInternalCopyRef = useRef(false);
+
 	// 禁用复制功能
 	const handleCopy = (e: React.ClipboardEvent) => {
+		// 若为我们触发的内部复制，则不拦截
+		if (allowInternalCopyRef.current) {
+			return;
+		}
 		e.preventDefault();
 		e.stopPropagation();
 		return false;
@@ -226,7 +237,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		const nodes = parseTiptapNodes(content);
 
 		// 调试信息
-		console.log('解析的节点:', nodes);
+		// console.log('解析的节点:', nodes);
 		setThoughtNodes(nodes);
 		
 		// 延迟强制刷新，确保所有节点都已渲染并获取到尺寸
@@ -241,8 +252,8 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		e.stopPropagation();
 		setDraggingInfo({
 			id: node.id,
-			startX: e.clientX / transform.scale - node.position.x,
-			startY: e.clientY / transform.scale - node.position.y,
+			startX: (e.clientX - transform.x) / transform.scale - node.position.x,
+			startY: (e.clientY - transform.y) / transform.scale - node.position.y,
 		});
 	};
 
@@ -268,22 +279,36 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		}
 
 		if (draggingInfo) {
-			const newX = e.clientX / transform.scale - draggingInfo.startX;
-			const newY = e.clientY / transform.scale - draggingInfo.startY;
+			const newX = (e.clientX - transform.x) / transform.scale - draggingInfo.startX;
+			const newY = (e.clientY - transform.y) / transform.scale - draggingInfo.startY;
 
-			setThoughtNodes(nodes =>
-				nodes.map(n =>
-					n.id === draggingInfo.id
-						? { ...n, position: { x: newX, y: newY } }
-						: n
-				)
-			);
+			pendingDragPosition.current = { x: newX, y: newY };
+			if (dragAnimationFrameId.current === null) {
+				dragAnimationFrameId.current = requestAnimationFrame(() => {
+					const pos = pendingDragPosition.current;
+					if (pos) {
+						setThoughtNodes(nodes =>
+							nodes.map(n =>
+								n.id === draggingInfo.id
+									? { ...n, position: { x: pos.x, y: pos.y } }
+									: n
+							)
+						);
+					}
+					dragAnimationFrameId.current = null;
+				});
+			}
 		}
 	};
 
 	const handleMouseUp = () => {
 		setIsPanning(false);
 		setDraggingInfo(null);
+		if (dragAnimationFrameId.current !== null) {
+			cancelAnimationFrame(dragAnimationFrameId.current);
+			dragAnimationFrameId.current = null;
+		}
+		pendingDragPosition.current = null;
 	};
 
 	const handleContextMenu = (e: React.MouseEvent, node: ThoughtRenderNode) => {
@@ -330,6 +355,8 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 		textarea.focus();
 		textarea.select();
 		try {
+			// 允许 copy 事件通过
+			allowInternalCopyRef.current = true;
 			const successful = document.execCommand('copy');
 			if (successful) {
 				console.log('复制成功');
@@ -338,8 +365,10 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 			}
 		} catch (error) {
 			console.log('复制失败');
+		} finally {
+			allowInternalCopyRef.current = false;
+			document.body.removeChild(textarea);
 		}
-		document.body.removeChild(textarea);
 	};
 
 	const handleNodeClick = (clickedNode: ThoughtRenderNode) => {
@@ -389,8 +418,8 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 	}, [thoughtNodes, forceUpdate]);
 
 	// 调试信息
-	console.log('思想节点数量:', thoughtNodes.length);
-	console.log('思想节点:', thoughtNodes);
+	// console.log('思想节点数量:', thoughtNodes.length);
+	// console.log('思想节点:', thoughtNodes);
 	
 	// 渲染空状态
 	if (!content || thoughtNodes.length === 0) {
@@ -513,7 +542,7 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 							<path
 								key={`line-theme-${index}`}
 								d={pathData}
-								className={`stroke-branch-accent/60 transition-all duration-300 ${isDimmed ? 'opacity-0' : 'opacity-100'} ${isHighlighted ? 'stroke-[2.5]' : 'stroke-[1.5]'}`}
+								className={`stroke-branch-accent/60 transition-opacity duration-200 ${isDimmed ? 'opacity-0' : 'opacity-100'} ${isHighlighted ? 'stroke-[2.5]' : 'stroke-[1.5]'}`}
 								strokeWidth={(isHighlighted ? 2.5 : 1.5) / transform.scale}
 								strokeDasharray="4 3"
 								fill="none"
@@ -561,6 +590,9 @@ const Preview = ({ content }: { content: TiptapNode }) => {
 						left: contextMenu.x,
 						zIndex: 9999
 					}}
+					onMouseDown={(e) => { e.stopPropagation(); }}
+					onClick={(e) => { e.stopPropagation(); }}
+					onContextMenu={(e) => { e.stopPropagation(); }}
 					className="w-48 bg-white/95 backdrop-blur-sm rounded-md shadow-lg border border-root-secondary/20 text-sm animate-grow"
 				>
 					<ul className="py-1">
